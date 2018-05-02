@@ -11,6 +11,16 @@ output:
 
 La base de datos a utilizar se encuentra en: https://archive.ics.uci.edu/ml/machine-learning-databases/00320/student.zip
 
+
+
+#INDICE
+
+*1. Introduccion
+*2. Carga de los Datos
+*3. Analisis Descriptivo
+*4. Analisis Exploratorio
+*5. Conclusiones
+
 # 1. Introducción
 El objetivo de este análisis es realizar un análisis descriptivo y exploratorio de los datos de los que disponemos sobre notas de alumnos de matemáticas y portugués, para obtener alguna conclusión.
 La Hipótesis con la que vamos a trabajar será predecir el valor de la nota final (Variable G3) basándonos en que dicha nota sea mayor o menor que 9. Para ello estudiaremos cómo afectan algunas de las variables a esta nota final y así predecir el comportamiento futuro con esta información.
@@ -141,6 +151,16 @@ correlacion
 ```
 La variable que es objeto de este estudio es G3, por lo que nos centraremos en ella.
 
+
+# Se clasifican los alumnos como aprobados o suspendidos. Se considera G3 como la ultima evaluacion. Aprobados mayor a 9 (G3 tiene un valor entre 0 y 20).
+```{r} 
+    sMatAprobados <- studentMat[!studentMat$G3<9,]
+    dim(sMatAprobados)
+    
+    sPorAprobados <- studentPor[!studentPor$G3<9,]
+    dim(sPorAprobados)
+```
+
 Convertimos el dataframe a una matriz para trabajar.
 A la hora de revisar las relaciones, las que sean positivas nos indican que a medida que la variable aumenta, también aumenta G3. En las negativas, sucede que a medida que disminuya la variable, también disminuye G3. Las correlaciones perfectas son  =0 (negativa) o =1 (positiva)
 
@@ -189,7 +209,7 @@ plot(absences.x, G3.x, main = "GP", pch=20))
 with(subset(studentMatPor, school == "MS"),
 plot(absences.x, G3.x, main = "MS", pch=20))
 ```
-Analizamos la relación de algunas variables, por ejemplo ‘Tiempo de Estudio’ con la variable objetivo: considerando que G3 = evaluación final: Suponemos que “fail” es una nota final de 0 a 9 y que  "pass" es superior a 9:
+Analizamos la relación de algunas variables, por ejemplo elegimos ‘Tiempo de Estudio’ para comparar con la variable objetivo: considerando que G3 = evaluación final: Suponemos que “fail” es una nota final de 0 a 9 y que  "pass" es superior a 9:
 
 ```{r}
 studentMat$pass <- ifelse(studentMat$G3>9, 1, 0)
@@ -310,9 +330,9 @@ plot(studentPor.mod %>% select(G2, G3), col = studentPorkmeans.clust$cluster)
 points(as.data.frame(studentPorkmeans.clust$centers) %>% select(G2, G3), pch = 8, cex = 2)
 
 ```
-# 5. Conclusiones 
+# 5. Conclusiones
 
-Podemos ver que donde más alumnos de matemáticas hay concentrados es en el cluster 6, 7 y 8. Es en el cluster 7 donde 81 estudiantes aprueban esta asignatura, con una nota de 14 y cuya nota en el los distintos exámenes anteriores ha sido similar a la conseguida finalmente. Con referencia a los alumnos del cluster 6 (79 estudiantes) han aprobado con una nota cercan al 11.50 y vemos que es prácticamente la misma que la nota sacada en los examenes realizados con anterioridad. 
+Podemos ver que donde más alumnos de matemáticas hay concentrados es en el cluster 6, 7 y 8. Es en el cluster 7 donde 81 estudiantes aprueban esta asignatura, con una nota de 14 y cuya nota en el los distintos exámenes anteriores ha sido similar a la conseguida finalmente. Con referencia a los alumnos del cluster 6 (79 estudiantes) han aprobado con una nota cercana al 11.50 y vemos que es prácticamente la misma que la nota sacada en los examenes realizados con anterioridad. 
 El cluster 4 es que suspende con una nota final de 0 habiendo suspendido también los anteriores exámenes. Por último vemos que hay un grupo de estudiantes de 30 personas, incluido en el cluster 2, que sacan muy buenas notas finales, cercanas al 17.50 y en los que vemos que los exámenes anteriores tienen notas similares. 
 
 En relación a los estudiantes portugueses se muestra que las notas son superiores a los de matemáticas en la mayoría de los cluster establecidos, en concreto en el cluster 6, hay 40 estudiantes que tienen una nota de 17, similar en los exámenes anteriores. El cluster más numeroso es el 7 con 137 estudiantes con una nota final cercana a los 13 puntos, aceptable para tan alto número de estudiantes.
