@@ -1,0 +1,324 @@
+---
+title: 'Analisis Exploratorio: práctica con R'
+author: "Patricia Sanchez Holgado"
+date: "10 de Abril de 2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+#### ENUNCIADO: En esta práctica se pretende llegar sólo hasta el Exploratorio, pero pensando en una finalidad posterior (Modelo predictivo, Clasificación, ....). Aunque esta finalidad última no se incluya en la práctica, se debe plantear la "hipótesis" en la introducción. Con este dataset se podría tratar de predecir el valor de la nota final G3, o clasificar a los alumnos como aprobados o suspendidos en base a que esa nota sea mayor o menor que 5, pero se puede pensar otro objetivo si así se quiere).
+
+La base de datos a utilizar se encuentra en: https://archive.ics.uci.edu/ml/machine-learning-databases/00320/student.zip
+
+# 1. Introducción
+El objetivo de este análisis es realizar un análisis descriptivo y exploratorio de los datos de los que disponemos sobre notas de alumnos de matemáticas y portugués, para obtener alguna conclusión.
+La Hipótesis con la que vamos a trabajar será predecir el valor de la nota final (Variable G3) basándonos en que dicha nota sea mayor o menor que 9. Para ello estudiaremos cómo afectan algunas de las variables a esta nota final y así predecir el comportamiento futuro con esta información.
+
+Establecemos el directorio de trabajo
+
+```{r}
+
+#Directorio de trabajo
+#ls()
+#getwd()
+#setwd("/Users/Patricia/Desktop/Exploratorio")
+#setwd("Exploratorio")
+#getwd()
+
+#if (!file.exists('./Exploratorio')){
+#  dir.create('./Exploratorio')
+#}
+#list.files('./Exploratorio')
+
+#Cargamos las librerías que vamos a utilizar
+library(readr)
+library(knitr)
+library(caret)
+library(ggplot2)
+library(gplots)
+library(corrplot)
+library(dplyr)
+library(cluster)
+library(Matrix)
+library(Hmisc)
+library(lattice)
+library(gridExtra)
+```
+# 2. Carga de los datos
+Cargamos los dos datasets:
+```{r}
+studentMat <- read.table ("student-mat.csv", row.names=NULL, sep=";", header=TRUE)
+studentPor <- read.table ("student-por.csv", row.names=NULL, sep=";", header=TRUE)
+```
+# 3. Análisis Descriptivo
+Observamos que el dataset relativo a los estudiantes de matemáticas (student-mat), recoge datos de 395 estudiantes en base a 30 variables tales como género, edad, si viven en un entorno rural o urbano, información familiar, etc y 3 variables con la nota del primer (G1) y segundo ciclo (G2) y la nota final (G3). El dataset de los estudiantes de portugués (student-por) tiene datos de 649 estudiantes sobre las mismas variables.
+Por tanto en ambos la variable relativa a la nota final es ‘G3’, con un valor entre 0 y 20. Comprobamos los datos que presentan los estudiantes de matemáticas y portugués relacionados con esta nota final:
+
+```{r}
+any(studentMat$G3 == 20)
+all(studentMat$G3 > 0)
+any(studentPor$G3 == 20)
+all(studentPor$G3 > 0)
+```
+Los resultados nos indican que hay alumnos de matemáticas con una nota máxima de 20, pero no hay ninguno de Portugués, y además en todos los casos hay algún alumno con nota 0.
+
+Vamos a cruzar ambas tablas para centrarnos en los que son alumnos comunes.
+
+```{r}
+studentMatPor=merge(studentMat,studentPor,by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+print(nrow(studentMatPor)) # 382 students
+View(studentMatPor)
+
+```
+Obtenemos 382 registros.
+
+Vamos a revisar el resumen de datos de la tabla conjunta StudentMatPor: summary, names, nrow, ncol, class
+```{r}
+summary(studentMatPor)
+names(studentMatPor)
+nrow(studentMatPor)
+ncol(studentMatPor)
+class(studentMatPor)
+```
+En la tabla cruzada hay 342 alumnos de la Escuela GP y 40 de la Escuela MS.
+En la variable G3 tenemos las columnas G3.x y G3.y que nos indican la nota final del período de grado, con medias de 10.39 y 12.52 respectivamente.
+
+Podemos calcular la media, mediana o quantiles
+```{r}
+mean(studentMatPor$G3.x)
+median(studentMatPor$G3.x)
+quantile(studentMatPor$G3.x)
+mean(studentMatPor$G3.y)
+median(studentMatPor$G3.y)
+quantile(studentMatPor$G3.y)
+```
+Ahora observamos las frecuencias. 
+
+```{r}
+tabla<-table(studentMatPor$G3.x)
+frecrelativa<-(tabla)/margin.table(tabla)
+frecrelativa
+frecabsol<-cumsum(tabla)
+frecabsol
+```
+
+Matriz de correlaciones. Queremos que todos los datos a manejar sean numéricos, por lo que convertimos los que no lo son.
+En este caso hemos ido convirtiendo cada una de las columnas en valor numérico y al finalizar usamos sapply.
+```{r}
+schoolnum<-as.numeric(studentMatPor$school)
+sexnum<-as.numeric(studentMatPor$sex)
+adressnum<-as.numeric(studentMatPor$adress)
+famsizenum<-as.numeric(studentMatPor$famsize)
+statusnum<-as.numeric(studentMatPor$Pstatus)
+medunum<-as.numeric(studentMatPor$Medu)
+fedunum<-as.numeric(studentMatPor$Fedu)
+mjobnum<-as.numeric(studentMatPor$Mjob)
+fjobnum<-as.numeric(studentMatPor$Fjob)
+reasonnum<-as.numeric(studentMatPor$reason)
+nurserynum<-as.numeric(studentMatPor$nursery)
+internetnum<-as.numeric(studentMatPor$internet)
+guardianXnum<-as.numeric(studentMatPor$guardian.x)
+guardianYnum<-as.numeric(studentMatPor$guardian.y)
+schoolsupXnum<-as.numeric(studentMatPor$schoolsup.x)
+schoolsupYnum<-as.numeric(studentMatPor$schoolsup.y)
+famsupXnum<-as.numeric(studentMatPor$famsup.x)
+famsupYnum<-as.numeric(studentMatPor$famsup.y)
+paidXnum<-as.numeric(studentMatPor$paid.x)
+paidYnum<-as.numeric(studentMatPor$paid.y)
+activitiesXnum<-as.numeric(studentMatPor$activities.x)
+activitiesYnum<-as.numeric(studentMatPor$activities.y)
+higherXnum<-as.numeric(studentMatPor$higher.x)
+higherYnum<-as.numeric(studentMatPor$higher.y)
+romanticXnum<-as.numeric(studentMatPor$romantic.x)
+romanticYnum<-as.numeric(studentMatPor$romantic.y)
+
+studentMatPornum<-sapply(studentMatPor,as.numeric)
+is.numeric(studentMatPornum)
+
+correlacion<-cor(studentMatPornum)
+correlacion
+```
+La variable que es objeto de este estudio es G3, por lo que nos centraremos en ella.
+
+Convertimos el dataframe a una matriz para trabajar.
+A la hora de revisar las relaciones, las que sean positivas nos indican que a medida que la variable aumenta, también aumenta G3. En las negativas, sucede que a medida que disminuya la variable, también disminuye G3. Las correlaciones perfectas son  =0 (negativa) o =1 (positiva)
+
+```{r}
+studentMatPormatriz<-as.matrix(correlacion)
+is.matrix(correlacion)
+
+correlacionG3<-correlacion[, 33]
+correlacionG3
+```
+
+Podemos revisar cuáles pueden ser potenciales variables a estudiar según su correlación con G3 (positiva o negativa).
+
+Representacion Gráfica de G3
+```{r}
+histograma<-hist(studentMatPor$G3.x, freq=FALSE,col="lightcyan",main="Histograma de G3",xlab="")
+```
+# 4. Análisis Exploratorio
+Vamos a realizar una agrupación de alumnos aprobados o suspensos, a partir de un cluster jerarquico.
+
+Lo primero que debemos hacer es crear una variable binaria que sea capaz de explicar si el alumno aprueba o no.
+```{r}
+binaria <-cut2(studentMatPor$G3.x, c(10,20))
+levels(binaria) <- c(0,1)
+binaria2<-cbind(studentMatPor,binaria)
+```
+Como queremos aplicar cluster jerarquico podemos utilizar diversas distancias.
+```{r}
+jerarquico <- binaria2 %>% select(-c(studentMatPor$G3.x,binaria)) 
+idsamp <- sample(1:dim(jerarquico)[1], 360) 
+jerarquicosamp <- jerarquico[idsamp, ]
+head(jerarquicosamp)
+
+grafico<-daisy(jerarquicosamp,"gower")
+```
+### Clustering jerarquico
+```{r}
+clusterjer <- hclust(grafico, method="ward.D")
+plot(clusterjer, hang = -1, cex=0.8, labels=binaria2$binaria[idsamp])
+```
+Es interesante ver el Grafico de Ausencias de alumnos por Escuela (GP o MS)
+```{r}
+par(mfrow = c(1, 2), mar = c(5, 4, 2, 1), cex=2)
+with(subset(studentMatPor, school == "GP"),
+plot(absences.x, G3.x, main = "GP", pch=20))
+with(subset(studentMatPor, school == "MS"),
+plot(absences.x, G3.x, main = "MS", pch=20))
+```
+Analizamos la relación de algunas variables, por ejemplo ‘Tiempo de Estudio’ con la variable objetivo: considerando que G3 = evaluación final: Suponemos que “fail” es una nota final de 0 a 9 y que  "pass" es superior a 9:
+
+```{r}
+studentMat$pass <- ifelse(studentMat$G3>9, 1, 0)
+ggplot(studentMat, aes(studytime)) + geom_bar() +
+  facet_wrap(~ pass) +
+  ggtitle('Fig.1 Diagrama de barras Tiempo de Estudio, por nota final') +
+  theme(plot.title = element_text(vjust = +1.4, size = 8))
+```
+Vemos que según el diagrama de barras los estudiantes de matemáticas que le dedican entre 2 a 5 horas aprueban con una gran diferencia a los estudiantes que le dedican menos horas de estudio (o incluso más de 5 horas de estudio). A pesar de esto la distribución de esta variable es muy similar entre los que suspenden y los que aprueban. 
+
+Podemos calcular una matriz de correlación para averiguar la relacion de unas variables con otras y con el target. Tomaremos sólo algunas variables. Primero creamos variables dummies y posteriormente la matriz:
+
+```{r}
+studentMat$GP <- ifelse(studentMat$school == "GP", 1, 0)
+studentMat$MS <- ifelse(studentMat$school == "MS", 1, 0)
+matCor <- cor(studentMat[, c('GP','MS','absences','studytime','Walc','G1','G2','G3','pass')])
+matCor[is.na(matCor)] <- 0
+col <- colorRampPalette(c('#BB4444', '#EE9988', '#FFFFFF', '#77AADD', '#4477AA'))
+corrplot(matCor, method = 'shade', shade.col = NA, tl.col = 'black',
+tl.srt = 45, col = col(200), addCoef.col="black",
+order='AOE',
+mar = c(1,0,2,0), line=-2,
+main = 'Fig. 3 Predictores de la matriz de correlación de estudiantes de matemáticas')
+
+```
+Llevamos a cabo el mismo análisis para los estudiantes de portugués:
+
+```{r}
+studentPor$pass <- ifelse(studentPor$G3>9, 1, 0)
+
+```
+Dibujamos también su matriz de correlación:
+
+```{r}
+studentPor$GP <- ifelse(studentPor$school == "GP", 1, 0)
+studentPor$MS <- ifelse(studentPor$school == "MS", 1, 0)
+matCor <- cor(studentPor[, c('GP','MS','absences','studytime','Walc','G1','G2','G3','pass')])
+matCor[is.na(matCor)] <- 0
+col <- colorRampPalette(c('#BB4444', '#EE9988', '#FFFFFF', '#77AADD', '#4477AA'))
+corrplot(matCor, method = 'shade', shade.col = NA, tl.col = 'black',
+tl.srt = 45, col = col(200), addCoef.col="black",
+order='AOE',
+mar = c(1,0,2,0), line=-2,
+main = 'Fig. 4 Predictores de la matriz de correlación de estudiantes de portugués')
+```
+Los valores más cercanos a 1, G1, G2, G3, pertenecen a las variables más correladas. Esto significaría que las notas de otros periodos anteriores va a influir en la nota final.
+
+## Análisis exploratorio apoyado en algún método NO supervisado
+
+El método no supervisado que utilizaremos será el de agrupaciones o clustering particionado. Vamos a quitar las variables que no queremos que se incluyan en el clustering: 
+Para los estudiantes de matemáticas:
+```{r}
+studentMat.mod <- studentMat %>% select (-school, -sex, -address, -famsize, -Pstatus, -Mjob, -Fjob, -reason, -guardian, -schoolsup, -famsup, -paid, -activities, -nursery, -higher, -internet, -romantic, -pass)
+head(studentMat.mod)
+```
+Aplicamos el clustering con k-means ya que todas las variables son numéricas:
+```{r}
+mydata <- studentMat.mod
+wss <- (nrow(mydata)-1)*sum(apply(mydata,2,var))
+for (i in 2:15) wss[i] <- sum(kmeans(mydata,
+                                     centers=i)$withinss)
+plot(1:15, wss, type='b', xlab='Número de clusters',
+     ylab='Sumas de cuadrados',
+     main='Num de clusters óptimo según Elbow',
+     pch=20, cex=2)
+
+```
+Podemos ver que el cluster final K para los estudiantes de matemáticas podríamos tomarlo a 9 ya que a partir de ese número la variación es muy pequeña. Aplicamos pues el kmeans() con k=9
+
+```{r}
+set.seed(1234)
+studentMatkmeans.clust <- kmeans(studentMat.mod, 9)
+studentMatkmeans.clust
+```
+Comparamos el resultado de la clusterización con las variables G1 y G2 ya que en la matriz de correlación habíamos comprobado ya que tanto las variables G1 como G2 influían en G3
+
+```{r}
+plot(studentMat.mod %>% select(G1, G3), col = studentMatkmeans.clust$cluster)
+points(as.data.frame(studentMatkmeans.clust$centers) %>% select(G1, G3), pch = 8, cex = 2)
+#Hacemos lo mismo con G2 y G3:
+plot(studentMat.mod %>% select(G2, G3), col = studentMatkmeans.clust$cluster)
+points(as.data.frame(studentMatkmeans.clust$centers) %>% select(G2, G3), pch = 8, cex = 2)
+```
+```
+Aplicamos también este análisis para los estudiantes de portugués:
+
+```{r}
+studentPor.mod <- studentPor %>% select (-school, -sex, -address, -famsize, -Pstatus, -Mjob, -Fjob, -reason, -guardian, -schoolsup, -famsup, -paid, -activities, -nursery, -higher, -internet, -romantic, -pass)
+head(studentPor.mod)
+
+```
+Realizamos también la gráfica Elbow:
+
+```{r}
+mydataPor <- studentPor.mod
+wss <- (nrow(mydataPor)-1)*sum(apply(mydataPor,2,var))
+for (i in 2:15) wss[i] <- sum(kmeans(mydataPor,
+                                     centers=i)$withinss)
+plot(1:15, wss, type='b', xlab='Número de clusters',
+     ylab='Sumas de cuadrados',
+     main='Num de clusters óptimo según Elbow',
+     pch=20, cex=2)
+```
+Tambien consideramos k = 9
+ 
+```{r}
+set.seed(1234)
+studentPorkmeans.clust <- kmeans(studentPor.mod, 9)
+studentPorkmeans.clust
+```
+Comparamos el resultado de la clusterización con las variables G1 y G2
+
+```{r}
+plot(studentPor.mod %>% select(G1, G3), col = studentPorkmeans.clust$cluster)
+points(as.data.frame(studentPorkmeans.clust$centers) %>% select(G1, G3), pch = 8, cex = 2)
+
+plot(studentPor.mod %>% select(G2, G3), col = studentPorkmeans.clust$cluster)
+points(as.data.frame(studentPorkmeans.clust$centers) %>% select(G2, G3), pch = 8, cex = 2)
+
+```
+# 5. Conclusiones 
+
+Podemos ver que donde más alumnos de matemáticas hay concentrados es en el cluster 6, 7 y 8. Es en el cluster 7 donde 81 estudiantes aprueban esta asignatura, con una nota de 14 y cuya nota en el los distintos exámenes anteriores ha sido similar a la conseguida finalmente. Con referencia a los alumnos del cluster 6 (79 estudiantes) han aprobado con una nota cercan al 11.50 y vemos que es prácticamente la misma que la nota sacada en los examenes realizados con anterioridad. 
+El cluster 4 es que suspende con una nota final de 0 habiendo suspendido también los anteriores exámenes. Por último vemos que hay un grupo de estudiantes de 30 personas, incluido en el cluster 2, que sacan muy buenas notas finales, cercanas al 17.50 y en los que vemos que los exámenes anteriores tienen notas similares. 
+
+En relación a los estudiantes portugueses se muestra que las notas son superiores a los de matemáticas en la mayoría de los cluster establecidos, en concreto en el cluster 6, hay 40 estudiantes que tienen una nota de 17, similar en los exámenes anteriores. El cluster más numeroso es el 7 con 137 estudiantes con una nota final cercana a los 13 puntos, aceptable para tan alto número de estudiantes.
+
+#FIN
+
+
+
+
